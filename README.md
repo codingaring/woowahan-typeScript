@@ -10,9 +10,20 @@
 - what, why, how에 대해서 작성해보기
 - 실무에서 적용할 수 있는 예시 가지고 이야기해보기
 - 타입스크립트를 이해했는지 확인해볼 수 있는 예제 문제 만들어서 서로 풀어보기
+- `Input`, `Button`, `Form` 컴포넌트를 제네릭으로 구현해보기
+
+## 나눠보고 싶은 이야기
+- typeScript를 잘 쓴다. 의 정의
+- 설계로서의 typeScript
+- 문서로서의 typeScript
+- typeScript로 코드 사례 (나의 경험)
+- 제네릭을 얼마나 활용하시나요?
+- 타입 정의를 어디에 위치하는게 좋을까요? (폴더로 분리, 컴포넌트 상단에 위치 등)
+
 
 ## 🙍🏻‍♀️ 스터디원
-|유경|보경|
+|김유경|김보경|
 |---|---|
 |<img src="https://avatars.githubusercontent.com/u/153581513?v=4" title="김유경" >| <img src="https://avatars.githubusercontent.com/u/155048805?v=4" title="김보경">|
+|"자동 완성용으로 쓰는 건 그만, 더 '잘' 쓰고 싶습니다."|""|
 
