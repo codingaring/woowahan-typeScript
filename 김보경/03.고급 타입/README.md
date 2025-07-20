@@ -868,3 +868,7 @@ const fetchShopStatus = async (): Promise<
   - 제네릭이 과하게 사용되면 가독성을 해치기 때문에 코드를 일고 타입을 이해하기가 어려워집니다.
   - 제네릭 사용은 의미 단위로 분할해서 사용하는것이 좋습니다.
   - 만약 내가 작성한 코드를 다른 개발자가 쉽게 이해하지 못하고 있다면 혹시 제네릭을 오남용하고 있는 것은 아닌지 검토해봐야 합니다.
+
+참고 레퍼런스
+
+- [useQuery]([https://github.com/TanStack/query/blob/main/packages/react-query/src/useQuery.ts)
