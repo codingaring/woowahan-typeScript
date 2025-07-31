@@ -402,3 +402,26 @@ const onKeyDown = (event: React.KeyboardEvent) => {
 const isDestinationCode = (x: string): x is DestinationCode =>
   destinationCodeList.includes(x);
 ```
+
+- isDestinationCode는 string 타입의 매개변수가 destinationCodeList 배열의 원소 중 하나인지를 검사하여 boolean을 반환하는 함수이다.
+- 함수의 반환 값을 boolean이 아닌 x is DestinationCode로 타이핑하여 타입스크립트에게 이 함수가 사용되는 곳의 타입을 추론할 때 해당 조건을 타입 가드로 사용하도록 알려준다.
+
+```ts
+const getAvailableDestinationNameList = async (): Promise<
+  DestinationName[]
+> => {
+  const data = await AxiosRequest<string>("get", ".../destinations");
+  const destinationNames: DestinationName[] = [];
+  data?.forEach((str) => {
+    if (isDestinationCode(str)) {
+      destinationNames.push(DestinationNameSet[str]);
+      /**
+       * isDestinationCode의 반환 값에 is를 사용하지 않고 boolean이라고 한다면 다음 에러가 발생한다.
+       * - Element implicitly has an 'any' type because expression of type *'string' can't be used to index type 'Record<"MESSAGE_PLATFORM"> | "COUPON_PLATFORM" | "BRAZE" | "통합메시지플랫폼" | "쿠폰대장간" | "braze">'
+       */
+    }
+  });
+};
+```
+
+- if문 내 isDestinationCode 함수로 data의 str이 destinationCodeList의 문자열 원소인지 체크하고, 맞다면 destinationNames 배열에 push한다.
