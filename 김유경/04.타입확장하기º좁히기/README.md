@@ -425,3 +425,155 @@ const getAvailableDestinationNameList = async (): Promise<
 ```
 
 - if문 내 isDestinationCode 함수로 data의 str이 destinationCodeList의 문자열 원소인지 체크하고, 맞다면 destinationNames 배열에 push한다.
+
+# 타입 좁히기 - 식별할 수 있는 유니온 (Discriminated Unions)
+
+= 태그된 유니온
+
+## 1. 에러 정의하기
+
+### 사용 예시
+
+- 유효성 에러 발생 시, 텍스트, 토스트, 얼럿 에러로 분류하고 있다.
+  - 에러 코드와 에러 메시지를 가지고 있고, 분류에 따라 추가적인 정보가 있을 수 있다.
+
+```ts
+type TextError = {
+  errorCode: string;
+  errorMessage: string;
+};
+
+type ToastError = {
+  errorCode: string;
+  errorMessage: string;
+  toastShowDuration: number; // 토스트를 띄울 시간
+};
+```
+
+- 이 에러 타입을 원소로 하는 배열을 정의해보면 다음과 같다.
+
+```ts
+type ErrorFeedbackType = TextError | ToastError | AlertError;
+const errorArr: ErrorFeedbackType[] = [
+  {
+    errorCode: "100",
+    errorMessage: "텍스트 에러",
+  },
+  {
+    errorCode: "200",
+    errorMessage: "토스트 에러",
+    toastShowDuration: 3000,
+  },
+  {
+    errorCode: "300",
+    errorMessage: "텍스트 에러",
+    onConfirm: () => {},
+  },
+];
+
+const errorArr: ErrorFeedbackType[] = [
+  {
+    errorCode: "999",
+    errorMessage: "잘못된 에러",
+    toastShowDuration: 3000,
+    onConfirm: () => {},
+  }, // expected error
+];
+```
+
+- 하지만 이 코드를 작성했을 때 자바스크립트는 덕 타이핑 언어이기 때문에 별도의 타입 에러를 뱉지 않는 것을 확인할 수 있다.
+- 이런 상황에서 에러를 뱉지 않는다면 앞으로도 개발 과정에서 의미를 알 수 없는 무수한 에러 객체가 생겨날 위험성이 커진다.
+
+## 2. 식별할 수 있는 유니온
+
+> 타입 간의 구조 호환을 막기 위해 타입마다 구분할 수 있는 판별자를 달아 주어 포함 관계를 제거하는 것이다.
+
+- 따라서 위와 같은 상황을 구분하기 위한 상황이 필요하다.
+
+```ts
+type TextError = {
+  errorType: "TEXT";
+  errorCode: string;
+  errorMessage: string;
+};
+type ToastError = {
+  errorType: "TOAST";
+  errorMessage: string;
+  toastShowDuration: number;
+};
+type AlertError = {
+  errorType: "ALERT";
+  errorCode: string;
+  errorMessage: string;
+  onConfirm: () => void;
+};
+```
+
+## 3. 식별할 수 있는 유니온의 판별자 선정
+
+- 식별할 수 있는 유니온을 사용할 때 주의할 점이 있다.
+- 판별자는 유닛 타입(unit type)으로 선언되어야 정상적으로 작동한다.
+  - 쪼개지지 않고 오직 하나의 정확한 값을 가지는 타입 (null, undefined, 리터럴 타입, true, 1 등 정확한 값을 나타내는 타입)
+
+> ### 💡 **공식 깃허브 이슈** <br />
+>
+> - 리터럴 타입이어야 한다.
+> - 판별자로 선정한 값에 적어도 하나 이상의 유닛 타입이 포함되어야 하며, 인스턴스화할 수 있는 타입은 포함되지 않아야 한다.
+
+# Exhaustiveness Checking으로 정확한 타입 분기 유지하기
+
+- Exhaustiveness는 사전적으로 철저함, 완전함을 의미한다.
+  > 따라서 Exhaustiveness Checking은 모든 케이스에 대해 철저하게 타입을 검사하는 것을 말하며 타입 좁히기에 사용되는 패러다임 중 하나다.
+
+## 1. 상품권
+
+- 상품권 가격에 따라 상품권 이름을 반환해주는 함수
+
+```ts
+type ProductPrice = "10000" | "20000";
+
+const getProductName = (productPrice: ProductPrice): string => {
+  if (productPrice === "10000") return "배민상품권 1만 원";
+  if (productPrice === "20000") return "배민상품권 2만 원";
+  else {
+    return "배민상품권";
+  }
+};
+```
+
+- 여기까지는 문제가 없지만, 새로운 상품권이 생겼다고 가정해보자.
+
+```ts
+type ProductPrice = "10000" | "20000" | "5000";
+
+const getProductName = (productPrice: ProductPrice): string => {
+  if (productPrice === "10000") return "배민상품권 1만 원";
+  if (productPrice === "20000") return "배민상품권 2만 원";
+  if (productPrice === "5000") return "배민상품권 5천 원";
+  else {
+    return "배민상품권";
+  }
+};
+```
+
+- 이때 ProductPrice에 "5000"을 추가하고 getProductName에 "5000"에 대한 분기 추가를 해주지 않아도 에러를 뱉지 않는다.
+- 이럴 때 exhaustiveCheck(productPrice)해주면 모든 케이스에 대한 분기 처리를 해주도록 강제할 수 있다.
+
+```ts
+type ProductPrice = "10000" | "20000" | "5000";
+
+const getProductName = (productPrice: ProductPrice): string => {
+  if (productPrice === "10000") return "배민상품권 1만 원";
+  if (productPrice === "20000") return "배민상품권 2만 원";
+  // if (productPrice === "5000") return "배민상품권 5천 원";
+  else {
+    exhaustiveCheck(productPrice); // Error: Argument of type 'string' is not assign able to parameter of type 'never'
+    return "배민상품권";
+  }
+};
+
+// 매개변수가 never로 되어 있어 어떤 값도 받을 수 없으며, 만일 값이 들어온다면 에러를 뱉는다.
+const exhaustiveCheck = (param: never) => {
+  throw new Error("type error!");
+};
+```
