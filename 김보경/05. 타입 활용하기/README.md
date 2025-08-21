@@ -747,7 +747,7 @@ type StyledProps = Pick<Props, "height" | "color" | "isFull">
   const shopAds = shopAdCampaignList.filter(NonNullable);
   ```
 
-### 05.4 불변 객체 타입으로 활용하기
+## 05.4 불변 객체 타입으로 활용하기
 
 #### Atom 컴포넌트에서 theme style 객체 활용하기
 
