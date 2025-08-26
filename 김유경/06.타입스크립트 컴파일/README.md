@@ -80,3 +80,67 @@
 - 타입을 검사한 다음에 타입스크립트 코드를 각자의 런타임 환경에서 동작할 수 있도록 구버전의 자바스크립트로 트랜스파일한다.
 - 타입스크립트 소스코드는 브라우저와 같은 런타임에 실행될 수 없다.
   - 타입스크립트 소스코드를 파싱하고 자바스크립트 코드로 변환해야 비로소 실행할 수 있게 된다.
+  - 타입스크립트 컴파일러의 target 옵션을 사용하여 특정 버전의 자바스크립트 소스코드로 컴파일할 수 있다.
+
+### 컴파일 예시
+
+```ts
+type Fruit = "banana" | "watermelon" | "orange" | "apple" | "kiwi" | "mango";
+const fruitBox: Fruit[] = ["banana", "apple", "mango"];
+
+const welcome = (name: string) => {
+  console.log(`hi! ${name} :)`);
+};
+```
+
+```ts
+"use strict";
+var fruitBox = ["banana", "apple", "mango"];
+var welcome = function (name) {
+  console.log("hi! ".concat(name, " :)"));
+};
+```
+
+- 타입스크립트 컴파일러는 타입 검사를 수행한 후 코드 변환을 시작하는데, 이때 타입 오류가 있더라도 일단 컴파일을 진행한다.
+  - 이때 타입 오류가 있더라도, 일단 컴파일을 진행한다.
+    => 타입스크립트 코드가 자바스크립트 코드로 변환되는 과정은 타입 검사와 독립적으로 동작하기 때문이다.
+  - 타입스크립트 코드의 타이핑이 잘못되어 발생하는 에러는 자바스크립트 실행 과정에서 런타임 에러로 처리된다.
+- 자바스크립트는 타입 정보를 이해하지 못해서, 소스코드에 타입 에러가 있더라도 자바스크립트로 컴파일되어 타입 정보가 모두 제거된 후에는 타입이 아무런 효력을 발휘하지 못한다.
+
+```ts
+interface Square {
+  width: number;
+}
+
+interface Rectangle extends Square {
+  height: number;
+}
+
+type Shape = Square | Rectangle;
+
+function calculateArea(shape: Shape) {
+  if (shape instanceof Rectangle) {
+    // 'Rectangle' only refers to a type, but is being used as a value here
+    // Property 'height' does not exist on type 'Shape'
+    // Property 'height' does not exist on type 'Square'
+    return shape.width * shape.height;
+  } else {
+    return shape.width * shape.width;
+  }
+}
+```
+
+- instanceof 체크는 런타임에 실행되지만 Rectangle은 타입이기 때문에 자바스크립트 런타임은 해당 코드를 이해하지 못한다.
+- 타입스크립트 코드가 자바스크립트로 컴파일 되는 과정에서 모든 인터페이스, 타입, 타입 구문이 제거되어 버리기 때문에 런타임에서는 타입을 사용할 수 없다.
+
+## 컴파일러의 역할
+
+- 최신 버전의 타입스크립트/자바스크립트 코드를 구버전의 자바스크립트로 트랜스파일한다.
+- 코드의 타입 오류를 검사한다.
+
+## 바벨의 역할과 다른 점
+
+> **바벨 (Babel)** <br />
+> ECMAScript 2015 이후의 코드를 현재 또는 오래된 브라우저와 호환되는 버전으로 변환해주는 자바스크립트 컴파일러이다.
+
+- tsc과 달리 바벨은 타입 검사를 하지않고, 최신 버전의 자바스크립트 코드를 낮은 버전으로 컴파일하는 것이 주된 역할이다.
