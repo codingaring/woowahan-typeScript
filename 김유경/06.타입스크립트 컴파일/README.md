@@ -144,3 +144,98 @@ function calculateArea(shape: Shape) {
 > ECMAScript 2015 이후의 코드를 현재 또는 오래된 브라우저와 호환되는 버전으로 변환해주는 자바스크립트 컴파일러이다.
 
 - tsc과 달리 바벨은 타입 검사를 하지않고, 최신 버전의 자바스크립트 코드를 낮은 버전으로 컴파일하는 것이 주된 역할이다.
+
+## 3. 타입스크립트 컴파일러의 구조
+
+- 컴파일러는 하나의 프로그램으로, 이를 구현한 소스 파일이 존재한다.
+- 타입스크립트 공식 깃허브에서 compiler라는 별도의 폴더로 구성된 타입스크립트 컴파일러를 찾아볼 수 있다.
+
+![alt text](typeScript-1.png)
+
+### 프로그램 (Program)
+
+- 타입스크립트 컴파일러는 tsc 명령어로 실행된다.
+- 컴파일러는 `tsconfig.json`에 명시된 컴파일 옵션을 기반으로 컴파일을 수행한다.
+- 먼저 전체적인 컴파일 과정을 관리하는 프로그램 객체(인스턴스)가 생성된다.
+- 이 프로그램 객체는 컴파일할 타입스크립트 소스 파일과 소스 파일 내에서 임포트된 파일을 불러오는데, 가장 최초로 불러온 파일을 기준으로 컴파일 과정이 시작된다.
+
+### 스캐너 (Scanner)
+
+- 타입스크립트 소스를 자바스크립트로 변환하기 위한 첫 번째 단계는 스캐너이다.
+  : 소스 파일을 어휘적으로 분석하여 토큰을 생성하는 역할을 한다.
+  = 소스코드를 작은 단위로 나누어 의미 있는 토큰으로 변환하는 작업 수행
+
+```ts
+const woowa = "bros";
+```
+
+![alt text](scanner.png)
+
+### 파서 (Parser)
+
+- 스캐너가 소스 파일을 토큰으로 나눠주면 파서는 그 토큰 정보를 이용하여 AST를 생성한다.
+- AST는 컴파일러가 동작하는 데 핵심 기반이 되는 자료 구조로, 소스코드의 구조를 트리 형태로 표현한다.
+- AST의 최상위 노드는 타입스크립트 소스 파일이며, 최하위 노드는 파일의 끝 지점으로 구성된다.
+
+- 스캐너는 어휘적 분석을 통해 토큰 단위로 소스코드를 나누지만, 파서는 이렇게 생성된 토큰 목록을 활용하여 구문적 분석을 수행한다.
+  -> 이를 통해 코드의 실질적인 구조를 노드 단위의 트리 형태로 표현한다.
+  - 각각의 노드는 코드상의 위치, 구문 종류, 코드 내용과 같은 정보를 담고 있다.
+
+#### 예시
+
+- ( )에 해당하는 토큰이 있을 때, 파서가 AST를 생성하는 과정에서 이 토큰이 실질적으로 함수의 호출인지, 함수의 인자인지 또는 그룹 연산자인지가 결정된다.
+
+```ts
+function normalFunction() {
+  console.log("normalFunction");
+}
+
+normalFunction();
+```
+
+- 위의 코드는 아래와 같은 구조로 AST를 구성한다.
+
+![alt text](AST.png)
+
+### 바인더 (Binder)
+
+- 바인더의 주요 역할은 체커(Checker) 단계에서 타입 검사를 할 수 있도록 기반을 마련하는 것이다.
+- 바인더는 타입 검사를 위해 심볼이라는 데이터 구조를 생성한다.
+  - 심볼은 이전 단계의 AST에서 선언된 타입의 노드 정보를 저장한다.
+
+```ts
+export interface Symbol {
+  flags: SymbolFlags; // Symbol flags
+  escapedName: string; // Name of symbol
+  declarations?: Declaration[]; // Declarations associated with this symbol
+  // 이하 생략
+}
+```
+
+- flags 필드는 AST에서 선언된 타입의 노드 정보를 저장하는 식별자이다. 심볼을 구분하는 식별자 목록은 다음과 같다.
+
+```ts
+// src/compiler/types.ts
+export const enum SymbolFlags {
+  None = 0,
+  FunctionScopedVariable = 1 << 0, // Variable (var) or parameter
+  BlockScopedVariable = 1 << 1, // A block-scoped variable (let or const)
+  Property = 1 << 2, // Property or enum member
+  EnumMember = 1 << 3, // Enum member
+  Function = 1 << 4, // Function
+  Class = 1 << 5, // Class
+  Interface = 1 << 6, // Interface
+  ...
+}
+```
+
+- 심볼 인터페이스의 declarations 필드는 AST 노드의 배열 형태를 보인다. 결과적으로 바인더는 심볼을 생성하고, 해당 심볼과 그에 대응하는 AST 노드를 연결하는 역할을 수행한다.
+- 아래는 여러 가지 선언 요소에 대한 각각의 심볼 결과이다.
+
+```ts
+type SomeType = string | number;
+interface SomeInterface {
+  name: string;
+  age?: number;
+}
+```
