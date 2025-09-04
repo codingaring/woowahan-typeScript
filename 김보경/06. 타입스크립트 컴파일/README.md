@@ -328,3 +328,9 @@
 2. Rollup - 라이브러리 개발 표준
 3. Webpack - 기업용 프로젝트 표준
 4. esbuild - 심플한 설정
+
+##### 관련 레퍼런스
+
+- [Babel vs TypeScript의 tsc](https://typescript-kr.github.io/pages/tutorials/babel-with-typescript.html)
+- [vite-rolldown](https://ko.vite.dev/guide/rolldown)
+- [React 컴파일러](https://ko.react.dev/learn/react-compiler)
