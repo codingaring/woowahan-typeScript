@@ -16,10 +16,13 @@
   - 타입을 확장할때, 타입을 조건부로 설정할때 사용
   - 제네릭 타입에서는 한정자 역할로도 사용됩니다.
 - `extends`를 사용한 조건부 타입의 활용 예시를 보기 전에 간단하게 `extends`가 어떻게 조건부 타입으로 사용되는지 알아보겠습니다.
+
   ```ts
   T extends U ? X : Y
   ```
+
   - 조건부 타입에서 `extends`를 사용할 때는 자바스크립트 삼항 연산자와 함께 사용합니다.
+
   ```ts
   interface Bank {
     financialCode: string;
@@ -38,6 +41,7 @@
   type BankPayMethodType = PayMethod<"bank">;
   // extends 키워드는 일반적으로 문자열 리터럴과 함께 사용하지는 않지만, 예시에서는 extends의 활용법을 설명하기 위해 문자열 리터럴에 사용되고 있습니다.
   ```
+
   - `Bank`는 계좌를 이용한 결제 수단이며 고유 코드인 financialCode, name 등을 가지고 있습니다. `Card`타입과 다른 점은 fullName으로 은행의 전체 이름 속성을 가지고 있다는 것입니다.
   - `Card`는 카드를 이용한 결제 수단 정보입니다. `Bank`와 마찬가지로 유사한 속성을 가지고 있으며, 다른점으로는 appCardType으로 카드사 입을 사용해서 카드 정보를 등록할 수 있는지를 구별해주는 속성이 있다는 것입니다.
   - `PayMethod`타입은 제네릭 타입으로 `extends`를 사용한 조건부 타입입니다.
@@ -331,16 +335,20 @@
   ```
 
   - 그다음 조건에 맞는 값을 추출할 `UnpackMenuNames`라는 타입을 추가했습니다.
+
     - `UnpackMenuNames`는 불변 객체인 `MenuItem` 배열만 입력으로 받을 수 있도록 제한되어 있으며, `infer U`를 사용하여 배열 내부 타입을 추론합니다.
     - 코드를 자세히 살펴보면 다음과 같은 동작을 수행합니다.
+
       - `U`가 `MainMenu`타입이라면 subMenus를 `infer V`로 추출합니다.
       - subMenus는 옵셔널한 타입이기 때문에 추출한 `V`가 존재한다면(`SubMenu`타입에 할당할 수 있다면) `UnpackMenuNames`에 다시 전달합니다.
       - `V`가 존재하지 않는다면 `MainMenu`의 name은 권한에 해당하므로 `U["name"]`입니다.
       - `U`가 `MainMenu`가 아니라 `SubMenu`에 할당할 수 있다면(U는 `SubMenu` 타입이기 때문에) `U["name"]`은 권한에 해당합니다.
+
       ```ts
       export type PermissionNames = UnpackMenuNames<typeof menuList>;
       // [기기 내역 관리, 헬멧 인증 관리, 운행 관리]
       ```
+
   - `PermissionNames`는 menuList에서 권한으로 유효한 값만 추출하여 배열로 반환하는 타입을 확인할 수 있습니다.
 
 #### 너무 이해가 안되어서 다시 풀어서 써보겠습니다
@@ -351,6 +359,7 @@
 2. 목표는 menuList 에서 실제 권한에 해당하는 name들만을 추출하여 타입으로 만들기임!
    - 예시를 다시 보면 카테고리명에 해당하는 "계정 관리"는 권한이 아님을 알 수 있다.
 3. `UnpackMenuNames`타입의 단계별 분석
+
    ```ts
    type UnpackMenuNames<T extends ReadonlyArray<MenuItem>> =
      T extends ReadonlyArray<infer U> // 1단계: 배열에서 요소 타입 추출
@@ -365,6 +374,7 @@
          : never
        : never;
    ```
+
    1. T extends ReadonlyArray<infer U>
       - menuList의 타입에서 각 요소의 타입을 U로 추출
       - T = [MainMenu, MainMenu, ...]
@@ -395,12 +405,16 @@
   - 해당 기능을 활용하면 컴파일 타임의 변수에 할당되는 타입을 특정 문자열로 정확하게 검사하여 휴먼 에러를 방지할 수 있고, 자동 완성 기능을 통해 개발 생산성을 높일 수 있습니다.
 
 - 템플릿 리터럴 타입은 자바스크립트의 템플릿 리터럴 문법을 사용해 특정 문자열에 타입을 선언할 수 있는 기능입니다.
+
   - 앞선 예시의 `HeaderTag`타입은 템플릿 리터럴 타입을 사용하여 다음과 같이 선언할 수 있습니다.
+
   ```ts
   type HeadingNumber = 1 | 2 | 3 | 4 | 5;
   type HeaderTag = `h${HeadingNumber}`;
   ```
+
   - 수평 또는 수직 방향을 표현하는 `Direction`타입을 다음과 같이 표현할 수 있습니다.
+
   ```ts
   type Direction =
     | "top"
@@ -410,15 +424,17 @@
     | "bottomLeft"
     | "bottomRight";
   ```
+
   - 이 코드의 `Direction`타입은 중복되는 문자열들이 합쳐져있는 문자열로 선언되어 있습니다.
   - 이 코드에 템플릿 리터럴 타입을 적용하면 다음과 같이 좀 더 명확하게 표시할 수 있습니다.
+
   ```ts
   type Vertical = "top" | "bottom";
   type Horizon = "left" | "right";
   type Direction = Vertical | `${Vertical}${Capitalize<Horizon>}`;
   ```
 
-#### 주의할 점!
+#### 주의할 점
 
 - 타입스크립트 컴파일러가 유니온을 추론하는 데 시간이 오래 걸리면 비효율적이기 때문에 타입스크립트가 타입을 추론하지 않고 에러를 내밷을 때가 있습니다.
 - 따라서 템플릿 리터럴 타입에 삽입된 유니온 조합의 경우의 수가 너무 많지 않게 적절하게 나누어 타입을 정의하는 것이 좋습니다.
@@ -572,6 +588,7 @@ type StyledProps = Pick<Props, "height" | "color" | "isFull">
 
   - 결국 선택하고자 하는 하나의 속성을 제외한 나머지 값을 옵셔털 타입 `undefined`로 설정하면 원하고자 하는 속성만 받도록 구현할 수 있습니다.
   - 이를 커스텀 유틸리티 타입으로 구현해보겠습니다.
+
     ```ts
     type PickOne<T> = {
       [P in keyof T]: Record<P, T[P]> &
@@ -604,16 +621,19 @@ type StyledProps = Pick<Props, "height" | "color" | "isFull">
     ```
 
   - ExcludeOne<T>
+
     ```ts
     type ExcludeOne<T> = {
       [P in keyof T]: Partial<Record<Exclude<keyof T, P>, undefined>>;
     }[keyof T];
     ```
+
     - `[P in keyof T]`에서 T는 객체로 가정하기 때문에 P는 T 객체의 키값을 말합니다.
     - `Exclude<keyof T, P>`는 T 객체가 가진 키값에서 P타입과 일치하는 키값을 제외합니다. 이 타입을 A로 가정하겠습니다.
     - `Record<A, undefined>`는 키로 A타입을, 값으로 undefined 타입을 갖는 레코드 타입입니다. 즉, 전달받은 객체 타입을 모두 `{ [key]: undefined }` 형태로 만들어줍니다. 이 타입을 B로 가정하겠습니다.
     - `Partial<B>`는 B타입을 옵셔널로 만들어줍니다. 따라서 `{ [key]?: undefined }`와 같습니다.
     - 최종적으로 `[P in keyof T]`로 매핑된 타입에서 동일한 객체의 키값인 `[keyof T]`로 접근하기 때문에 위 타입이 반환됩니다.
+
   - 결론적으로 얻고자 하는 타입은 속성 하나와 나머지는 `옵셔널 + undefined`인 타입이기 때문에 앞의 속성을 활용해서 `PickOne`타입을 표현할 수 있습니다.
   - PickOne<T>
 
