@@ -319,3 +319,364 @@ function isListItem(listItems: ListItem[]) {
 
 - isListItem은 ListItem의 배열 목록을 받아와 데이터가 ListItem 타입과 동일한지 확인하고 다를 경우에는 에러를 던진다.
 - 이제 fetchList 함수에 Superstruct로 작성한 검증 함수를 추가하면 런타임 유효성 검사를 진행할 수 있게 된다.
+
+# 2. API 상태 관리하기
+
+- 실제 API를 요청하는 코드는 컴포넌트 내에서 비동기 함수를 직접 호출하지는 않는다.
+  비동기 API를 호출하기 위해서는 API의 성공/실패에 따른 상태가 관리되어야 하므로 상태 관리 라이브러리의 액션이나 훅과 같이 재정의된 형태를 사용해야 한다.
+
+## 상태 관리 라이브러리 호출하기
+
+- 서비스 코드를 사용해서 비동기 상태를 변화시킬 수 있는 함수를 제공한다.
+
+  - 컴포넌트는 이러한 함수를 사용하여 상태를 구독하며, 상태가 변경될 때 컴포넌트를 다시 렌더링 하는 방식으로 동작한다.
+
+- Redux는 비교적 초기에 나온 상태 관리 라이브러리이다.
+
+```ts
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+
+export function useMonitoringHistory() {
+  const dispatch = useDispatch();
+
+  // 전역 Store 상태(RootState)에서 필요한 데이터만 가져온다.
+  const serchState = useSelector(
+    (state: RootState) => state.monitoringHistory.searchState
+  );
+
+  // history 내역을 검사하는 함수, 검색 조건이 바뀌면 상태를 갱신하고 API를 호출한다.
+  const getHistoryList = async (
+    newState : Partial<MonitoringHistorySearchState> => {
+        const newSearchState = {...searchState, ...newState};
+        dispatch(monitoringHistorySlice.actions.changeSearchState(newSearchState));
+        const response = await getHistories(newSearchState); // 비동기 API 호출하기
+        dispatch(monitoringHistorySlice.actions.fetchData(response));
+    }
+  )
+
+  return {
+    searchState,
+    getHistoryList,
+  }
+}
+```
+
+- 스토어에서 getHistories API만 호출하고, 그 결과를 받아와서 상태를 업데이트하는 일반적인 방식으로 사용할 수 있다.
+- 하지만 getHistoryList 함수 안에는 API 상태 저장을 위한 함수를 별도로 호출해서 업데이트해줘야 한다.
+- Redux는 비동기 상태가 아닌 전역 상태를 위해 만들어진 라이브러리이기 때문에 미들웨어 라고 불리는 여러 도구를 도입하여 비동기 상태를 관리한다.
+  - 따라서 보일러플레이트가 많아지는 등 간편하게 비동기 상태를 관리하기 어려운 상황도 발생한다.
+
+### MobX
+
+- Redux의 불편함을 개선하기 위해 비동기 콜백 함수를 분리하여 액션으로 만들거나 runInAction과 같은 메서드를 사용하여 상태 변경을 처리한다.
+- async/ await 나 flow 같은 비동기 상태 관리를 위한 기능도 있어서 이전보다 간편하게 사용할 수 있다.
+
+```ts
+import { runInAction, makeAutoObservable } from "mobx";
+import type Job from "models/Job";
+
+class JobStore {
+  job: Job[] = [];
+
+  constructor() {
+    makeAutoObservable(this);
+  }
+}
+
+type LoadingState = "PENDING" | "DONE" | "ERROR";
+
+class Store {
+  job: Job[] = [];
+  state: LoadingState = "PENDING";
+  errorMsg = "";
+
+  constructor() {
+    makeAutoObservable(this);
+  }
+
+  async fetchJobList() {
+    this.job = [];
+    this.state = "PENDING";
+    this.errorMsg = "";
+
+    try {
+      const projects = await fetchJobList();
+      runInAction(() => {
+        this.projects = projects;
+        this.state = "DONE";
+      });
+    } catch (e) {
+      runInAction(() => {
+        this.state = "ERROR";
+        this.errorMsg = e.message;
+      });
+    }
+  }
+}
+```
+
+- 모든 상태 관리 라이브러리에서 비동기 처리 함수를 호출하기 위해 액션이 추가될 때마다 관련된 스토어나 상태가 계속 늘어난다.
+- 이로 인한 가장 큰 문제점은 전역 상태 관리자가 모든 비동기 상태에 접근하고 변경할 수 있다는 것이다.
+  - 만약 2개 이상의 컴포넌트가 구독하고 있는 비동기 상태가 있다면 쓸데없는 비동기 통신이 발생하거나 의도치 않은 상태 변경이 발생할 수 있다.
+
+## 훅으로 호출하기
+
+- react-query나 useSwr 같은 훅을 사용한 방법은 상태 변경 라이브러리를 사용한 방식보다 훨씬 간단하다.
+- 이러한 훅은 캐시를 사용하여 비동기 함수를 호출하며, 상태 관리 라이브러리에서 발생했던 의도치 않은 상태 변경을 방지하는 데 도움을 준다.
+
+```ts
+// 사용법은 익히 알고 있는 방식이라서 생략했습니다.
+```
+
+# 3. API 에러 핸들링
+
+- 비동기 API 호출을 하다보면 상태 코드에 따라 401 (인증되지 않은 사용자), 404(존재하지 않는 리소스), 500(서버 내부 에러) 혹은 CORS 에러 등 다양한 에러가 발생할 수 있다.
+- 타입스크립트에서 이러한 에러를 어떻게 명시하고 처리할 수 있는지 알아보자.
+
+## 타입 가드 활용하기
+
+- Axios 라이브러리에서는 Axios 에러에 대해 isAxiosError라는 타입 가드를 제공하고 있다.
+- 이 타입 가드를 직접 활용할 수도 있지만, 서버 에러임을 명확하게 표시하고 서버에서 내려주는 에러 객체에 대해서도 구체적으로 정의함으로써 에러 객체가 어떤 속성을 가졌는지를 파악할 수 있다.
+
+```ts
+interface ErrorResponse {
+  status: string;
+  serverDateTime: string;
+  errorCode: string;
+  errorMessage: string;
+}
+```
+
+- ErrorResponse 인터페이스를 사용하여 처리해야 할 Axios 에러 형태는 AxiosError<ErrorResponse> 로 표현할 수 있으며 다음과 같이 타입 가드를 명시적으로 작성할 수 있다.
+
+```ts
+function isServerError(error: unknown): error is AxiosError<ErrorResponse> {
+  return axios.isAxiosError(error);
+}
+```
+
+> 사용자 정의 타입 가드를 정의할 때는 타입 가드 함수의 반환타입으로 parameterName is Type 형태의 타입 명제를 정의해주는게 좋다. 이때 parameterName은 타입 가드 함수의 시그니처에 포함된 매개변수여야 한다.
+
+```ts
+const onClickDeleteHistoryButton = async (id: string) => {
+  try {
+    await axios.post("l....", { id });
+
+    alert("주문 내역이 삭제되었습니다.");
+  } catch (error) {
+    if (isServerError(e) && e.response && e.response.data.errorMessage) {
+      // 서버에러 일 때의 처리임을 명시적으로 알 수 있다.
+      setErrorMessage(e.response.data.errorMessage);
+      return;
+    }
+
+    setErrorMessage(
+      "일시적인 에러가 발생했습니다. 잠시 후 다시 시도해 주세요."
+    );
+  }
+};
+```
+
+## 에러 서브클래싱하기
+
+- 실제 요청을 처리할 때 단순한 서버 에러도 발생하지만 인증 정보 에러, 네트워크 에러, 타임 아웃 에러 같은 다양한 에러가 발생하기도 한다.
+- 이를 더욱 명시적으로 표시하기 위해 서브클래싱을 활용할 수 있다.
+
+> **서브 클래싱(Subclassing)** <br />
+> 기존 (상위 또는 부모) 클래스를 확장하여 새로운 (하위 또는 자식) 클래스를 만드는 과정을 말한다. <br />
+> 새로운 클래스는 상위 클래스의 모든 속성과 클래스를 상속받아 사용할 수 있고 추가적인 속성과 메서드를 정의할 수도 있다.
+
+- 사용자에게 주문 내역을 보여주기 위해 서버에 주문 내역을 요청할 때는 다음과 같은 코드를 작성할 수 있다.
+
+```ts
+const getOrderHistory = async (page: number): Promise<History> => {
+  try {
+    const { data } = await axios.get("");
+    const history = await JSON.parse(data);
+
+    return history;
+  } catch (error) {
+    alert(error.message);
+  }
+};
+```
+
+- 이렇게 작성하면 사용자에게는 어떤 에러가 발생한 것인지 확인시킬 수 있지만, 개발자는 구분할 수 없다.
+
+```ts
+class OrderHttpError extends Error {
+  private readonly privateResponse: AxiosResponse<ErrorResponse> | undefined;
+
+  constructor(message?: string, response?: AxiosResponse<ErrorResponse>) {
+    super(message);
+    this.name = "OrderHttpError";
+    this.privateResponse = response;
+  }
+
+  get response(): AxiosResponse<ErrorResponse> | undefined {
+    return this.privateResponse;
+  }
+}
+
+class NetworkError extends Error {
+  constructor(message = "") {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+class UnauthorizedError extends Error {
+  constructor(message: string, response?: AxiosResponse<ErrorResponse>) {
+    super(message, response);
+    this.name = "UnauthorizedError";
+  }
+}
+```
+
+- 에러와 같이 에러 객체를 상속한 OrderHttpError, NetworkError, UnauthorizedError를 정의한다.
+- Axios를 사용하고 있다면 조건에 따라 인터셉터에서 적합한 에러 객체를 전달할 수 있다.
+
+```ts
+const httpErrorHandler = (
+  error: AxiosError<ErrorResponse> | Error
+): Promise<Error> => {
+  let promiseError: Promise<Error>;
+
+  if (axios.isAxiosError(error)) {
+    if (Object.is(error.code, "ECONNABORTED")) {
+      promiseError = Promise.reject(new TimeoutError());
+    } else if (Object.is(error.message, "Network Error")) {
+      promiseError = Promise.reject(new NetworkError(""));
+    } else {
+      const { response } = error as AxiosError<ErrorResponse>;
+
+      switch (response?.status) {
+        case HttpStatusCode.UNAUTHORIZED:
+          promiseError = Promise.reject(
+            new UnauthorizedError(response?.data.message, response)
+          );
+          break;
+        default:
+          promiseError = Promise.reject(
+            new OrderHttpError(response?.data.message, response)
+          );
+      }
+    }
+  } else {
+    promiseError = Promise.reject(error);
+  }
+
+  return promiseError;
+};
+```
+
+- 이렇게 정의해둔 후, 다시 요청 코드로 돌아와서 이렇게 사용해줄 수 있다.
+
+```ts
+const onActionError = (
+  error: unknown,
+  params?: Omit<AlertPopup, "type" | "message">
+) => {
+  if (error instanceof UnauthorizedError) {
+    onUnauthorizedError(
+      error.message,
+      errorCallback?.onUnauthorizedErrorCallback
+    );
+  } else if (error instanceof NetworkError) {
+    alert("네트워크 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.", {
+      onClose: errorCallback?.onNetworkErrorCallback,
+    });
+  } else if (error instanceof OrderHttpError) {
+    alert(error.message.params);
+  } else if (error instanceof Error) {
+    alert(error.message.params);
+  } else {
+    alert(defaultHttpErrorMessage, params);
+  }
+};
+
+const getOrderHistory = async (page: number): Promise<History> => {
+  try {
+    const { data } = await fetchOrderHistory({ page });
+    const history = await JSON.parse(data);
+
+    return history;
+  } catch (error) {
+    onActionError(error);
+  }
+};
+```
+
+## 인터셉터를 활용한 에러 처리
+
+## 에러 바운더리를 활용한 에러 처리
+
+## 상태 관리 라이브러리에서의 에러 처리
+
+## react-query를 활용한 에러 처리
+
+## 그 밖의 에러 처리
+
+# 4. API 모킹
+
+## JSON 파일 불러오기
+
+- 간단한 조회만 필요한 경우에는 \*.json 파일을 만들거나 자바스크립트 파일 안에 JSON 형식의 정보를 저장하고 익스포트 해주는 방식을 사용하면 된다.
+- 이후 GET 요청에 파일 경로를 삽입해주면, 조회 응답으로 원하는 값을 받을 수 있다.
+
+```ts
+const SERVICES: Service[] = [
+  {
+    id: 0,
+    name: "배달의 민족",
+  },
+];
+
+export default SERVICES;
+
+// api
+const getServices = ApiRequester.get("/mock/services.ts");
+```
+
+## NextApiHandler 활용하기
+
+- 프로젝트에서 Next.js를 사용하고 있다면 NextApiHandler를 활용할 수 있다.
+- 응답하고자 하는 값을 정의하고 핸들러 안에서 요청에 대한 응답을 정의한다.
+
+## API 요청 핸들러에 분기 추가하기
+
+- 요청 경로를 수정하지 않고 평소에 개발할 때 필요한 경우에만 실제 요청을 보내고 그 외에는 목업을 사용하여 개발하고 싶다면 다음과 같이 처리할 수 있다.
+
+```ts
+const mockFetchBrands = (): Promise<FetchBrandsResponse> = new Promise((resolve)=>{
+    setTimeout(()=>{
+        resolve({
+            status: "SUCCESS",
+            message: null,
+            data [{
+                id : 1,
+                label :"배민스토어"
+            },
+            {
+                id : 2,
+                label :"비마트"
+            }]
+        })
+    },500)
+})
+
+const fetchBrands = () => {
+    if(useMock){
+        return mockFetchBrands();
+    }
+
+    return requester.get("/brands")
+}
+```
+
+- 이 방법을 사용하면 갭잘이 완료된 이후에도 유지보수할 때 목업 함수를 사용할 수 있다. 필요한 경우에만 실제 API에 요청을 보내고 평소에는 서버에 의존하지 않고 개발할 수 있게 된다.
+
+## axios-mock-adapter로 모킹하기
+
+## 목업 사용 여부 제어하기
