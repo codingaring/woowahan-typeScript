@@ -51,7 +51,7 @@ navigateByType change */}
 
 ### 1. useState
 
-- 리액트 함수 컴포넌트에서 상태를 과니하기 위해 useState 훅을 사용할 수 있습니다.
+- 리액트 함수 컴포넌트에서 상태를 관리하기 위해 useState 훅을 사용할 수 있습니다.
 
   - useState의 타입 정의는 다음과 같습니다.
 
